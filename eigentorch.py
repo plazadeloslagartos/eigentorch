@@ -18,13 +18,39 @@ class BiMap(torch.autograd.Function):
     CNN-like SPD filters which convert an input SPD matrix into another learned SPD matrix
     """
     @staticmethod
-    def forward(ctx, Xkm1, W, Wt):
-        ctx.save_for_backward(Wt)  # Does Wt really need to be saved or is it calculated out?
-        out = torch.mm(torch.mm(W, Xkm1), torch.transpose(W, 0, 1))
-        ctx.save_for_backward(out)
-        return torch.mm(torch.mm(W, Xkm1), torch.transpose(W, 0, 1))
+    def forward(ctx, Xkm1, W):
+        out = torch.mm(torch.mm(W, Xkm1), W.t())
+        ctx.save_for_backward(Xkm1, W)
+        print("BiMap Forward")
+        return out
 
     @staticmethod
-    def backward(ctx, *grad_outputs):
+    def backward(ctx, grad_output):
         "test edit    "
-        pass
+        Xkm1, W = ctx.saved_tensors
+        grad_Xk = torch.mm(torch.mm(W.t(), grad_output), W)
+        grad_Wk = 2 * grad_output.mm(W.mm(Xkm1))
+        print('BiMap Backward')
+        return grad_Xk, grad_Wk
+
+
+if __name__ == "__main__":
+    myfunc = BiMap.apply
+    Xdat = torch.rand(3, 3)
+    Xdat = Xdat @ Xdat.t()
+    Wdat = torch.rand(3, 3)
+    Wdat = Wdat @ Wdat.t()
+
+    X2 = Xdat.clone().detach().requires_grad_(True)
+    W2 = Wdat.clone().detach().requires_grad_(True)
+    output2 = torch.mm(torch.mm(W2, X2), W2.t())
+    loss2 = (torch.norm(output2 - torch.ones_like(output2)))
+    loss2.backward()
+
+    X = Xdat.clone().detach().requires_grad_(True)
+    W = Wdat.clone().detach().requires_grad_(True)
+    output = myfunc(X, W)
+    loss = (torch.norm(output - torch.ones_like(output)))
+    loss.backward()
+
+
