@@ -18,20 +18,23 @@ class BiMap(torch.autograd.Function):
     CNN-like SPD filters which convert an input SPD matrix into another learned SPD matrix
     """
     @staticmethod
-    def forward(ctx, Xkm1, W):
-        out = torch.mm(torch.mm(W, Xkm1), W.t())
-        ctx.save_for_backward(Xkm1, W)
-        print("BiMap Forward")
+    def forward(ctx, X, W):
+        out = torch.mm(torch.mm(W, X), W.t())
+        ctx.save_for_backward(X, W)
         return out
 
     @staticmethod
     def backward(ctx, grad_output):
-        "test edit    "
-        Xkm1, W = ctx.saved_tensors
-        grad_Xk = torch.mm(torch.mm(W.t(), grad_output), W)
-        grad_Wk = 2 * grad_output.mm(W.mm(Xkm1))
-        print('BiMap Backward')
-        return grad_Xk, grad_Wk
+        """
+        Computes input gradients for BiMap Bilinear transformation.  The gradient for the transformations weights
+        represent the Riemannian gradient with respect to the tangent of the Stiefel manifold
+        NOTE: Results are only valid if inputs to forward are symmetric matrices!
+        """
+        X, W = ctx.saved_tensors
+        grad_X = torch.mm(torch.mm(W.t(), grad_output), W)
+        grad_W = 2 * grad_output.mm(W.mm(X))
+        grad_W_r = grad_W - grad_W.mm(W.t().mm(W))
+        return grad_X, grad_W_r
 
 
 if __name__ == "__main__":
