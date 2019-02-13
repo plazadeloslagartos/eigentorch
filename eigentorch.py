@@ -75,8 +75,9 @@ class StiefelOpt(Optimizer):
             for p in group['params']:
                 if p.grad is None:
                     continue
+                # Perform Retraction onto Steifel manifold
                 d_p = p.grad.data
-                p.data.add_(-group['lr'], d_p)
+                p.data = torch.qr(p.data - group['lr']*d_p)[0]
 
         return loss
 
