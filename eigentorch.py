@@ -20,6 +20,13 @@ class BiMap(torch.autograd.Function):
     """
     @staticmethod
     def forward(ctx, X, W):
+        """
+        Performs forward pass of Bilinear transformation of an SPD matrix with dimension reduction Weights
+        :param ctx: context object
+        :param X: Tensor, input SPD matrix (d x d)
+        :param W: Tensor, Orthogonal Weights (orthogonality is necessary for Steifel manifold gradient search) (m x d, m < d)
+        :return: Tensor
+        """
         out = torch.mm(torch.mm(W, X), W.t())
         ctx.save_for_backward(X, W)
         return out
@@ -29,12 +36,7 @@ class BiMap(torch.autograd.Function):
         """
         Computes input gradients for BiMap Bilinear transformation.  The gradient for the transformations weights
         represent the Riemannian gradient with respect to the tangent of the Stiefel manifold
-        NOTE: Results are only valid if inputs to forward are symmetric matrices!
-
-        Args:
-            params (iterable): iterable of parameters to optimize or dicts defining
-                parameter groups
-            lr (float): learning rate
+        NOTE: Results are only valid if input (X) to forward is a symmetric matrix!
         """
         X, W = ctx.saved_tensors
         grad_X = torch.mm(torch.mm(W.t(), grad_output), W)
@@ -48,6 +50,11 @@ class StiefelOpt(Optimizer):
     Implements Parameter optimization with respect to a gradient on the Steifel manifold.
     Expects that the gradient associated with a given Parameter is the Riemannian gradient
     tangent to the manifold (i.e. gradient generated from BiMap function)
+
+     Args:
+            params (iterable): iterable of parameters to optimize or dicts defining
+                parameter groups
+            lr (float): learning rate
     """
     def __init__(self, params, lr=required):
         if lr is not required and lr < 0.0:
@@ -88,6 +95,8 @@ if __name__ == "__main__":
     Xdat = Xdat @ Xdat.t()
     Wdat = torch.rand(3, 3)
     Wdat = Wdat @ Wdat.t()
+    e, v = torch.eig(Wdat, eigenvectors=True)
+    Wdat = v[:2]
 
     X2 = Xdat.clone().detach().requires_grad_(True)
     W2 = Wdat.clone().detach().requires_grad_(True)
@@ -100,5 +109,6 @@ if __name__ == "__main__":
     output = myfunc(X, W)
     loss = (torch.norm(output - torch.ones_like(output)))
     loss.backward()
+    pass
 
 
