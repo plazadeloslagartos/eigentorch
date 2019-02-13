@@ -90,6 +90,7 @@ class StiefelOpt(Optimizer):
 
 
 if __name__ == "__main__":
+    import matplotlib.pyplot as plt
     myfunc = BiMap.apply
     Xdat = torch.rand(5, 5)
     Xdat = Xdat @ Xdat.t()
@@ -106,17 +107,19 @@ if __name__ == "__main__":
     # loss2 = (torch.norm(output2 - torch.ones_like(output2)))
     # loss2.backward()
     lvec = []
+    tvec = []
     X = Xdat.clone().detach().requires_grad_(True)
     W = Wdat.clone().detach().requires_grad_(True)
     for idx in range(1000):
         output = myfunc(X, W)
-
+        t_w = torch.randn(3, 1)
+        tvec.append(t_w.t() @ output @ t_w)
         optimizer = StiefelOpt([W], lr=0.001)
         loss = (torch.norm(output - expect))
         lvec.append(loss.item())
         loss.backward()
-        print(W)
         optimizer.step()
-    pass
+    tvec = torch.squeeze(torch.stack(tvec))
+    print("zero counts: {:d}".format((tvec <= 0).sum()))
 
 
