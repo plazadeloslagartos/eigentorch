@@ -84,31 +84,39 @@ class StiefelOpt(Optimizer):
                     continue
                 # Perform Retraction onto Steifel manifold
                 d_p = p.grad.data
-                p.data = torch.qr(p.data - group['lr']*d_p)[0]
+                p.data = torch.qr((p.data - group['lr']*d_p).t())[0].t()
 
         return loss
 
 
 if __name__ == "__main__":
     myfunc = BiMap.apply
-    Xdat = torch.rand(3, 3)
+    Xdat = torch.rand(5, 5)
     Xdat = Xdat @ Xdat.t()
-    Wdat = torch.rand(3, 3)
+    Wdat = torch.rand(5, 5)
     Wdat = Wdat @ Wdat.t()
+    expect = torch.rand(3, 3)
+    expect = expect @ expect.t()
     e, v = torch.eig(Wdat, eigenvectors=True)
-    Wdat = v[:2]
+    Wdat = v[:3]
 
-    X2 = Xdat.clone().detach().requires_grad_(True)
-    W2 = Wdat.clone().detach().requires_grad_(True)
-    output2 = torch.mm(torch.mm(W2, X2), W2.t())
-    loss2 = (torch.norm(output2 - torch.ones_like(output2)))
-    loss2.backward()
-
+    # X2 = Xdat.clone().detach().requires_grad_(True)
+    # W2 = Wdat.clone().detach().requires_grad_(True)
+    # output2 = torch.mm(torch.mm(W2, X2), W2.t())
+    # loss2 = (torch.norm(output2 - torch.ones_like(output2)))
+    # loss2.backward()
+    lvec = []
     X = Xdat.clone().detach().requires_grad_(True)
     W = Wdat.clone().detach().requires_grad_(True)
-    output = myfunc(X, W)
-    loss = (torch.norm(output - torch.ones_like(output)))
-    loss.backward()
+    for idx in range(1000):
+        output = myfunc(X, W)
+
+        optimizer = StiefelOpt([W], lr=0.001)
+        loss = (torch.norm(output - expect))
+        lvec.append(loss.item())
+        loss.backward()
+        print(W)
+        optimizer.step()
     pass
 
 
