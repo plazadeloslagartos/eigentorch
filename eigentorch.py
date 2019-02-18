@@ -104,7 +104,24 @@ class LogEig(torch.autograd.Function):
         ctx.save_for_backward(U, S)
         return U.mm(torch.log(S).mm(U.t()))
 
+    @staticmethod
+    def backward(ctx, *grad_outputs):
+        """
+        Determines gradients of Loss with respect to input tensor via the Log-Euclidean transformation
+        :param ctx: context object
+        :param grad_outputs: gradients received from next layer
+        :return: gradient with respect to input
+        """
+        grad_X = grad_outputs[0]
+        U, S = ctx.saved_tensors
+        rank = S.shape[0]
+        grad_U = 2 * grad_X.mm(U.mm(torch.log(S)))
+        grad_S = S.inverse().mm(U.t().mm(grad_X.mm(U)))
 
+        P = 1 / (U.t().repeat((rank, 1)) - U.repeat(1, rank))
+        P[torch.eye(rank) == 1] = 0
+
+        return 2 * U.mm(P.t() * U.mm(grad_U)).mm(U.t()) + U.mm(grad_S).mm(U.t())
 
 
 
