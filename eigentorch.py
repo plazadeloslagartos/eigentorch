@@ -45,6 +45,70 @@ class BiMap(torch.autograd.Function):
         return grad_X, grad_W_r
 
 
+class ReEig(torch.autograd.Function):
+    """
+    Implements the ReEig non-linearity which regularizes SPD matrices but placing a lower bound on eigen-values.
+    """
+
+    @staticmethod
+    def forward(ctx, X, eps):
+        """Performs forward pass of eigen-value based thresholding
+        :param ctx: context object
+        :param X: Tensor, input SPD matrix (d x d)
+        :param eps: minimum allowed eigen-value
+        :return: Thresholded SPD matrix
+        """
+        U, S = torch.eig(X, eigenvectors=True)
+        U = torch.reshape(U[:, 0], -1, 0)
+        S_th = torch.max(eps * torch.eye(S.shape[0])
+        ctx.save_for_backward([U, S_th, torch.Tensor([eps])])
+        return U.mm(torch.max(eps * torch.eye(S.shape[0]), S).mm(U.t()))
+
+    @staticmethod
+    def backward(ctx, *grad_outputs):
+        """
+        Determines gradients of Loss with respect to input tensor via the eigen-value tresholding
+        :param ctx: context object
+        :param grad_outputs: gradients received from next layer
+        :return: gradient with respect to input, None (to account for eps)
+        """
+        grad_X = grad_outputs[0]
+        U, S_th, eps = ctx.saved_tensors
+        rank = S_th.shape[0]
+        grad_U = 2 * grad_X.mm(S_th)
+        Q = S_th.diag()
+        Q[Q < eps[0]] = 0
+        grad_S = Q.diag().mm(U.t().mm(grad_X.mm(U)))
+        P = 1/(U.t().repeat((rank, 1)) - U.repeat(1, rank))
+        P[torch.eye(rank) == 1] = 0
+
+        return 2 * U.mm(P.t() * U.mm(grad_U)).mm(U.t()) + U.mm(grad_S).mm(U.t())
+
+
+
+class LogEig(torch.autograd.Function):
+    """
+    Implements the LogEig non-linearity which induces a Log-Euclidean Riemannian metric on an input SPD matrix.
+    """
+    @staticmethod
+    def forward(ctx, X):
+        """
+        Implementes the forward pass of the LogEig non-linearity which allows for Euclidean geometry to be used for
+        separation of features in the SPD matrix space.
+        :param ctx: context object
+        :param X: input SPD matrix (d x d)
+        :return: log-euclidean spd matrix
+        """
+        U, S = torch.eig(X, eigenvectors=True)
+        U = torch.reshape(U[:, 0], -1, 0)
+        ctx.save_for_backward(U, S)
+        return U.mm(torch.log(S).mm(U.t()))
+
+
+
+
+
+
 class StiefelOpt(Optimizer):
     """
     Implements Parameter optimization with respect to a gradient on the Steifel manifold.
