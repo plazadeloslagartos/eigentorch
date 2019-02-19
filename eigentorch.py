@@ -124,10 +124,11 @@ class LogEig(torch.autograd.Function):
         grad_X = grad_outputs[0]
         U, S = ctx.saved_tensors
         rank = S.shape[0]
-        grad_U = 2 * grad_X.mm(U.mm(torch.log(S)))
-        grad_S = S.inverse().mm(U.t().mm(grad_X.mm(U)))
+        grad_U = 2 * sym_op(grad_X).mm(U.mm(torch.log(S)))
+        grad_S = S.inverse().mm(U.t().mm(sym_op(grad_X).mm(U)))
 
-        P = 1 / (U.t().repeat((rank, 1)) - U.repeat(1, rank))
+        s_vals = S.diag()
+        P = 1 / (s_vals.repeat((rank, 1)) - s_vals.view(-1, 1).repeat(1, rank))
         P[torch.eye(rank) == 1] = 0
 
         return 2 * U.mm((P.t() * sym_op(U.t().mm(grad_U))).mm(U.t())) + U.mm(diag_op(grad_S).mm(U.t()))
@@ -190,7 +191,7 @@ if __name__ == "__main__":
     e, v = torch.eig(Wdat, eigenvectors=True)
     Wdat = v[:3]
 
-    # X2 = Xdat.clone().detach().requires_grad_(True)
+    X2 = Xdat.clone().detach().requires_grad_(True)
     # W2 = Wdat.clone().detach().requires_grad_(True)
     # output2 = torch.mm(torch.mm(W2, X2), W2.t())
     # loss2 = (torch.norm(output2 - torch.ones_like(output2)))
@@ -202,6 +203,7 @@ if __name__ == "__main__":
     output = myfunc(X)
     loss = (output.norm() - W.norm())**2
     loss.backward()
+    pass
     # for idx in range(1000):
     #     output = myfunc(X, W)
     #     t_w = torch.randn(3, 1)
