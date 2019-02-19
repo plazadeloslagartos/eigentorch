@@ -109,9 +109,8 @@ class LogEig(torch.autograd.Function):
         :return: log-euclidean spd matrix
         """
         S, U = torch.eig(X, eigenvectors=True)
-        S = S[:, 0].diag()
-        ctx.save_for_backward(U, S)
-        return U.mm(torch.log(S).mm(U.t()))
+        ctx.save_for_backward(U, S[:, 0])
+        return U.mm(torch.log(S[:, 0]).diag().mm(U.t()))
 
     @staticmethod
     def backward(ctx, *grad_outputs):
@@ -124,11 +123,10 @@ class LogEig(torch.autograd.Function):
         grad_X = grad_outputs[0]
         U, S = ctx.saved_tensors
         rank = S.shape[0]
-        grad_U = 2 * sym_op(grad_X).mm(U.mm(torch.log(S)))
-        grad_S = S.inverse().mm(U.t().mm(sym_op(grad_X).mm(U)))
+        grad_U = 2 * sym_op(grad_X).mm(U.mm(torch.log(S).diag()))
+        grad_S = S.diag().inverse().mm(U.t().mm(sym_op(grad_X).mm(U)))
 
-        s_vals = S.diag()
-        P = 1 / (s_vals.repeat((rank, 1)) - s_vals.view(-1, 1).repeat(1, rank))
+        P = 1 / (S.repeat((rank, 1)) - S.view(-1, 1).repeat(1, rank))
         P[torch.eye(rank) == 1] = 0
 
         return 2 * U.mm((P.t() * sym_op(U.t().mm(grad_U))).mm(U.t())) + U.mm(diag_op(grad_S).mm(U.t()))
@@ -180,7 +178,7 @@ class StiefelOpt(Optimizer):
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
-    myfunc = ReEig.apply
+    myfunc = LogEig.apply
     #myfunc = BiMap.apply
     Xdat = torch.rand(5, 5)
     Xdat = Xdat @ Xdat.t()
