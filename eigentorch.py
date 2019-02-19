@@ -13,6 +13,15 @@ nn = torch.nn
 from torch.optim.optimizer import Optimizer, required
 
 
+def sym_op(X):
+    return 0.5 * (X + X.t())
+
+
+def diag_op(X):
+    X[torch.eye(X.shape[0]) == 0] = 0
+    return X
+
+
 class BiMap(torch.autograd.Function):
     """
     Defines Bilinear Layer whose weights are updated with an orthogonality constraint. Can be used to generate
@@ -51,18 +60,18 @@ class ReEig(torch.autograd.Function):
     """
 
     @staticmethod
-    def forward(ctx, X, eps):
+    def forward(ctx, X, eps=1e-1):
         """Performs forward pass of eigen-value based thresholding
         :param ctx: context object
         :param X: Tensor, input SPD matrix (d x d)
         :param eps: minimum allowed eigen-value
         :return: Thresholded SPD matrix
         """
-        U, S = torch.eig(X, eigenvectors=True)
-        U = torch.reshape(U[:, 0], -1, 0)
-        S_th = torch.max(eps * torch.eye(S.shape[0])
-        ctx.save_for_backward([U, S_th, torch.Tensor([eps])])
-        return U.mm(torch.max(eps * torch.eye(S.shape[0]), S).mm(U.t()))
+        S, U = torch.eig(X, eigenvectors=True)
+        S = S[:, 0].diag()
+        S_th = torch.max(eps * torch.eye(S.shape[0]), S)
+        ctx.save_for_backward(U, S, S_th, torch.Tensor([eps]))
+        return U.mm(S_th.mm(U.t()))
 
     @staticmethod
     def backward(ctx, *grad_outputs):
@@ -73,17 +82,17 @@ class ReEig(torch.autograd.Function):
         :return: gradient with respect to input, None (to account for eps)
         """
         grad_X = grad_outputs[0]
-        U, S_th, eps = ctx.saved_tensors
+        U, S, S_th, eps = ctx.saved_tensors
         rank = S_th.shape[0]
-        grad_U = 2 * grad_X.mm(S_th)
-        Q = S_th.diag()
-        Q[Q < eps[0]] = 0
-        grad_S = Q.diag().mm(U.t().mm(grad_X.mm(U)))
-        P = 1/(U.t().repeat((rank, 1)) - U.repeat(1, rank))
+        grad_U = 2 * sym_op(grad_X).mm(U.mm(S_th))
+        Q = S.diag()
+        Q[Q <= eps[0]] = 0
+        grad_S = Q.diag().mm(U.t().mm(sym_op(grad_X).mm(U)))
+        s_vals = S.diag()
+        P = 1/(s_vals.repeat((rank, 1)) - s_vals.view(-1, 1).repeat(1, rank))
         P[torch.eye(rank) == 1] = 0
 
-        return 2 * U.mm(P.t() * U.mm(grad_U)).mm(U.t()) + U.mm(grad_S).mm(U.t())
-
+        return 2 * U.mm((P.t() * sym_op(U.t().mm(grad_U))).mm(U.t())) + U.mm(diag_op(grad_S).mm(U.t()))
 
 
 class LogEig(torch.autograd.Function):
@@ -99,8 +108,8 @@ class LogEig(torch.autograd.Function):
         :param X: input SPD matrix (d x d)
         :return: log-euclidean spd matrix
         """
-        U, S = torch.eig(X, eigenvectors=True)
-        U = torch.reshape(U[:, 0], -1, 0)
+        S, U = torch.eig(X, eigenvectors=True)
+        S = S[:, 0].diag()
         ctx.save_for_backward(U, S)
         return U.mm(torch.log(S).mm(U.t()))
 
@@ -121,9 +130,7 @@ class LogEig(torch.autograd.Function):
         P = 1 / (U.t().repeat((rank, 1)) - U.repeat(1, rank))
         P[torch.eye(rank) == 1] = 0
 
-        return 2 * U.mm(P.t() * U.mm(grad_U)).mm(U.t()) + U.mm(grad_S).mm(U.t())
-
-
+        return 2 * U.mm((P.t() * sym_op(U.t().mm(grad_U))).mm(U.t())) + U.mm(diag_op(grad_S).mm(U.t()))
 
 
 class StiefelOpt(Optimizer):
@@ -172,7 +179,8 @@ class StiefelOpt(Optimizer):
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
-    myfunc = BiMap.apply
+    myfunc = ReEig.apply
+    #myfunc = BiMap.apply
     Xdat = torch.rand(5, 5)
     Xdat = Xdat @ Xdat.t()
     Wdat = torch.rand(5, 5)
@@ -191,16 +199,19 @@ if __name__ == "__main__":
     tvec = []
     X = Xdat.clone().detach().requires_grad_(True)
     W = Wdat.clone().detach().requires_grad_(True)
-    for idx in range(1000):
-        output = myfunc(X, W)
-        t_w = torch.randn(3, 1)
-        tvec.append(t_w.t() @ output @ t_w)
-        optimizer = StiefelOpt([W], lr=0.001)
-        loss = (torch.norm(output - expect))
-        lvec.append(loss.item())
-        loss.backward()
-        optimizer.step()
-    tvec = torch.squeeze(torch.stack(tvec))
-    print("zero counts: {:d}".format((tvec <= 0).sum()))
+    output = myfunc(X)
+    loss = (output.norm() - W.norm())**2
+    loss.backward()
+    # for idx in range(1000):
+    #     output = myfunc(X, W)
+    #     t_w = torch.randn(3, 1)
+    #     tvec.append(t_w.t() @ output @ t_w)
+    #     optimizer = StiefelOpt([W], lr=0.001)
+    #     loss = (torch.norm(output - expect))
+    #     lvec.append(loss.item())
+    #     loss.backward()
+    #     optimizer.step()
+    # tvec = torch.squeeze(torch.stack(tvec))
+    # print("zero counts: {:d}".format((tvec <= 0).sum()))
 
 
