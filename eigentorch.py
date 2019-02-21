@@ -85,14 +85,17 @@ class ReEig(torch.autograd.Function):
         U, S, S_th, eps = ctx.saved_tensors
         rank = S_th.shape[0]
         grad_U = 2 * sym_op(grad_X).mm(U.mm(S_th))
-        Q = S.diag()
-        Q[Q <= eps[0]] = 0
-        grad_S = Q.diag().mm(U.t().mm(sym_op(grad_X).mm(U)))
+        Q = torch.eye(S.shape[0])
+        Q[S <= eps[0]] = 0
+        grad_S = Q.mm(U.t().mm(sym_op(grad_X).mm(U)))
         s_vals = S.diag()
-        P = 1/(s_vals.repeat((rank, 1)) - s_vals.view(-1, 1).repeat(1, rank))
+        P = 1/(s_vals.view(-1, 1).repeat((1, rank)) - s_vals.repeat(rank, 1))
         P[torch.eye(rank) == 1] = 0
 
-        return 2 * U.mm((P.t() * sym_op(U.t().mm(grad_U))).mm(U.t())) + U.mm(diag_op(grad_S).mm(U.t()))
+        dU = 2 * U.mm((P.t() * sym_op(U.t().mm(grad_U))).mm(U.t()))
+        dS = U.mm(diag_op(grad_S).mm(U.t()))
+
+        return dU + dS, None
 
 
 class LogEig(torch.autograd.Function):
@@ -126,10 +129,14 @@ class LogEig(torch.autograd.Function):
         grad_U = 2 * sym_op(grad_X).mm(U.mm(torch.log(S).diag()))
         grad_S = S.diag().inverse().mm(U.t().mm(sym_op(grad_X).mm(U)))
 
-        P = 1 / (S.repeat((rank, 1)) - S.view(-1, 1).repeat(1, rank))
+        s_vals = S.diag()
+        P = 1 / (s_vals.view(-1, 1).repeat((1, rank)) - s_vals.repeat(rank, 1))
         P[torch.eye(rank) == 1] = 0
 
-        return 2 * U.mm((P.t() * sym_op(U.t().mm(grad_U))).mm(U.t())) + U.mm(diag_op(grad_S).mm(U.t()))
+        dU = 2 * U.mm((P.t() * sym_op(U.t().mm(grad_U))).mm(U.t()))
+        dS = U.mm(diag_op(grad_S).mm(U.t()))
+
+        return dU + dS, None
 
 
 class StiefelOpt(Optimizer):
@@ -178,8 +185,9 @@ class StiefelOpt(Optimizer):
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
-    myfunc = LogEig.apply
-    #myfunc = BiMap.apply
+    func1 = BiMap.apply
+    func2 = ReEig.apply
+    func3 = LogEig.apply
     Xdat = torch.rand(5, 5)
     Xdat = Xdat @ Xdat.t()
     Wdat = torch.rand(5, 5)
@@ -190,28 +198,33 @@ if __name__ == "__main__":
     Wdat = v[:3]
 
     X2 = Xdat.clone().detach().requires_grad_(True)
-    # W2 = Wdat.clone().detach().requires_grad_(True)
+    W2 = Wdat.clone().detach().requires_grad_(True)
     # output2 = torch.mm(torch.mm(W2, X2), W2.t())
     # loss2 = (torch.norm(output2 - torch.ones_like(output2)))
     # loss2.backward()
     lvec = []
-    tvec = []
+    lvec2 = []
     X = Xdat.clone().detach().requires_grad_(True)
     W = Wdat.clone().detach().requires_grad_(True)
-    output = myfunc(X)
-    loss = (output.norm() - W.norm())**2
-    loss.backward()
+    #output = myfunc(X)
+    #loss = (output.norm() - W.norm())**2
+    #loss.backward()
+
+    for idx in range(1000):
+        output = func1(X, W)
+        output = func2(output, .001)
+        output2 = func1(X2, W2)
+        #e = torch.eig(output)[0]
+        #print("min eval: {:.4f}".format(e[:, 0].min()))
+        #output = func3(output)
+        optimizer = StiefelOpt([W, W2], lr=0.001)
+        loss = (torch.norm(output - expect))
+        loss2 = (torch.norm(output2 - expect))
+        lvec.append(loss.item())
+        lvec2.append(loss2.item())
+        loss.backward()
+        loss2.backward()
+        optimizer.step()
     pass
-    # for idx in range(1000):
-    #     output = myfunc(X, W)
-    #     t_w = torch.randn(3, 1)
-    #     tvec.append(t_w.t() @ output @ t_w)
-    #     optimizer = StiefelOpt([W], lr=0.001)
-    #     loss = (torch.norm(output - expect))
-    #     lvec.append(loss.item())
-    #     loss.backward()
-    #     optimizer.step()
-    # tvec = torch.squeeze(torch.stack(tvec))
-    # print("zero counts: {:d}".format((tvec <= 0).sum()))
 
 
