@@ -7,6 +7,10 @@ This is described fully in:
 
 Huang, Z., & Van Gool, L. (2016). A Riemannian Network for SPD Matrix Learning, 2036–2042.
 https://doi.org/10.1109/CVPR.2014.132
+
+Ionescu, C.; Vantzos, O.; and Sminchisescu, C. 2015. Matrix back- propagation for deep networks with structured layers.
+In ICCV. Jarrett,
+https://www.cv-foundation.org/openaccess/content_iccv_2015/papers/Ionescu_Matrix_Backpropagation_for_ICCV_2015_paper.pdf
 """
 import torch
 nn = torch.nn
@@ -54,7 +58,7 @@ class BiMap(torch.autograd.Function):
         return grad_X, grad_W_r
 
 
-class ReEig(torch.autograd.Function):
+class EigRe(torch.autograd.Function):
     """
     Implements the ReEig non-linearity which regularizes SPD matrices but placing a lower bound on eigen-values.
     """
@@ -68,10 +72,11 @@ class ReEig(torch.autograd.Function):
         :return: Thresholded SPD matrix
         """
         S, U = torch.eig(X, eigenvectors=True)
-        S = S[:, 0].diag()
+        S = S[:, 0]
+        S = S.diag()
         S_th = torch.max(eps * torch.eye(S.shape[0]), S)
         ctx.save_for_backward(U, S, S_th, torch.Tensor([eps]))
-        return U.mm(S_th.mm(U.t()))
+        return S_th, U
 
     @staticmethod
     def backward(ctx, *grad_outputs):
@@ -81,13 +86,14 @@ class ReEig(torch.autograd.Function):
         :param grad_outputs: gradients received from next layer
         :return: gradient with respect to input, None (to account for eps)
         """
-        grad_X = grad_outputs[0]
+        #grad_X = grad_outputs[0]
+        grad_S, grad_U = grad_outputs
         U, S, S_th, eps = ctx.saved_tensors
         rank = S_th.shape[0]
-        grad_U = 2 * sym_op(grad_X).mm(U.mm(S_th))
+        #grad_U = 2 * sym_op(grad_X).mm(U.mm(S_th))
         Q = torch.eye(S.shape[0])
         Q[S <= eps[0]] = 0
-        grad_S = Q.mm(U.t().mm(sym_op(grad_X).mm(U)))
+        #grad_S = Q.mm(U.t().mm(sym_op(grad_X).mm(U)))
         s_vals = S.diag()
         P = 1/(s_vals.view(-1, 1).repeat((1, rank)) - s_vals.repeat(rank, 1))
         P[torch.eye(rank) == 1] = 0
@@ -96,6 +102,11 @@ class ReEig(torch.autograd.Function):
         dS = U.mm(diag_op(grad_S).mm(U.t()))
 
         return dU + dS, None
+
+
+def ReEig(X, eps):
+    S_th, U = EigRe.apply(X, eps)
+    return U.mm(S_th.mm(U.t()))
 
 
 class LogEig(torch.autograd.Function):
@@ -186,7 +197,7 @@ class StiefelOpt(Optimizer):
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
     func1 = BiMap.apply
-    func2 = ReEig.apply
+    func2 = ReEig
     func3 = LogEig.apply
     Xdat = torch.rand(5, 5)
     Xdat = Xdat @ Xdat.t()
@@ -212,7 +223,7 @@ if __name__ == "__main__":
 
     for idx in range(1000):
         output = func1(X, W)
-        output = func2(output, .001)
+        output = func2(output, 1e-4)
         output2 = func1(X2, W2)
         #e = torch.eig(output)[0]
         #print("min eval: {:.4f}".format(e[:, 0].min()))
