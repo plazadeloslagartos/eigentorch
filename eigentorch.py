@@ -58,13 +58,13 @@ class BiMap(torch.autograd.Function):
         return grad_X, grad_W_r
 
 
-class EigRe(torch.autograd.Function):
+class EigDecomp(torch.autograd.Function):
     """
     Implements the ReEig non-linearity which regularizes SPD matrices but placing a lower bound on eigen-values.
     """
 
     @staticmethod
-    def forward(ctx, X, eps=1e-1):
+    def forward(ctx, X):
         """Performs forward pass of eigen-value based thresholding
         :param ctx: context object
         :param X: Tensor, input SPD matrix (d x d)
@@ -74,9 +74,9 @@ class EigRe(torch.autograd.Function):
         S, U = torch.eig(X, eigenvectors=True)
         S = S[:, 0]
         S = S.diag()
-        S_th = torch.max(eps * torch.eye(S.shape[0]), S)
-        ctx.save_for_backward(U, S, S_th, torch.Tensor([eps]))
-        return S_th, U
+        #S_th = torch.max(eps * torch.eye(S.shape[0]), S)
+        ctx.save_for_backward(U, S)
+        return S, U
 
     @staticmethod
     def backward(ctx, *grad_outputs):
@@ -88,11 +88,11 @@ class EigRe(torch.autograd.Function):
         """
         #grad_X = grad_outputs[0]
         grad_S, grad_U = grad_outputs
-        U, S, S_th, eps = ctx.saved_tensors
-        rank = S_th.shape[0]
+        U, S = ctx.saved_tensors
+        rank = S.shape[0]
         #grad_U = 2 * sym_op(grad_X).mm(U.mm(S_th))
-        Q = torch.eye(S.shape[0])
-        Q[S <= eps[0]] = 0
+        #Q = torch.eye(S.shape[0])
+        #Q[S <= eps[0]] = 0
         #grad_S = Q.mm(U.t().mm(sym_op(grad_X).mm(U)))
         s_vals = S.diag()
         P = 1/(s_vals.view(-1, 1).repeat((1, rank)) - s_vals.repeat(rank, 1))
@@ -101,11 +101,12 @@ class EigRe(torch.autograd.Function):
         dU = 2 * U.mm((P.t() * sym_op(U.t().mm(grad_U))).mm(U.t()))
         dS = U.mm(diag_op(grad_S).mm(U.t()))
 
-        return dU + dS, None
+        return dU + dS
 
 
 def ReEig(X, eps):
-    S_th, U = EigRe.apply(X, eps)
+    S, U = EigDecomp.apply(X)
+    S_th = torch.max(eps * torch.eye(S.shape[0]), S)
     return U.mm(S_th.mm(U.t()))
 
 
@@ -223,7 +224,7 @@ if __name__ == "__main__":
 
     for idx in range(1000):
         output = func1(X, W)
-        output = func2(output, 1e-4)
+        output = func2(output, 1e-3)
         output2 = func1(X2, W2)
         #e = torch.eig(output)[0]
         #print("min eval: {:.4f}".format(e[:, 0].min()))
