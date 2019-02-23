@@ -197,9 +197,11 @@ class StiefelOpt(Optimizer):
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
+    from torch.optim import SGD
     func1 = BiMap.apply
     func2 = ReEig
     func3 = LogEig.apply
+    func4 = lambda x, w: torch.mm(torch.mm(w, x), w.t())
     Xdat = torch.rand(5, 5)
     Xdat = Xdat @ Xdat.t()
     Wdat = torch.rand(5, 5)
@@ -222,21 +224,23 @@ if __name__ == "__main__":
     #loss = (output.norm() - W.norm())**2
     #loss.backward()
 
+    optimizer = StiefelOpt([W], lr=0.001)
+    optimizer2 = SGD([W2], lr=0.001)
     for idx in range(1000):
         output = func1(X, W)
         output = func2(output, 1e-3)
-        output2 = func1(X2, W2)
+        output2 = func4(X2, W2)
         #e = torch.eig(output)[0]
         #print("min eval: {:.4f}".format(e[:, 0].min()))
         #output = func3(output)
-        optimizer = StiefelOpt([W, W2], lr=0.001)
-        loss = (torch.norm(output - expect))
+        loss = (torch.mean(output - expect))
         loss2 = (torch.norm(output2 - expect))
         lvec.append(loss.item())
         lvec2.append(loss2.item())
         loss.backward()
         loss2.backward()
         optimizer.step()
+        optimizer2.step()
     pass
 
 
