@@ -104,12 +104,6 @@ class EigDecomp(torch.autograd.Function):
         return dU + dS
 
 
-def ReEig(X, eps):
-    S, U = EigDecomp.apply(X)
-    S_th = torch.max(eps * torch.eye(S.shape[0]), S)
-    return U.mm(S_th.mm(U.t()))
-
-
 class EigenLog(torch.autograd.Function):
     """
     Implements the LogEig non-linearity which induces a Log-Euclidean Riemannian metric on an input SPD matrix.
@@ -123,8 +117,9 @@ class EigenLog(torch.autograd.Function):
         :param X: input SPD matrix (d x d)
         :return: log-euclidean spd matrix
         """
-        ctx.save_for_backward(S, U)
-        return U.mm(torch.log(S).diag().mm(U.t()))
+        S_log = torch.log(S.diag()).diag()
+        ctx.save_for_backward(S, S_log, U)
+        return U.mm(S_log.mm(U.t()))
 
     @staticmethod
     def backward(ctx, *grad_outputs):
@@ -135,15 +130,21 @@ class EigenLog(torch.autograd.Function):
         :return: gradient with respect to input
         """
         grad_X = grad_outputs[0]
-        S, U = ctx.saved_tensors
-        grad_S = S.diag().inverse().mm(U.t().mm(sym_op(grad_X).mm(U)))
-        grad_U = 2 * sym_op(grad_X).mm(U.mm(torch.log(S).diag()))
+        S, S_log, U = ctx.saved_tensors
+        grad_S = S.inverse().mm(U.t().mm(sym_op(grad_X).mm(U)))
+        grad_U = 2 * sym_op(grad_X).mm(U.mm(S_log))
 
         return grad_S, grad_U
 
 
+def ReEig(X, eps):
+    S, U = EigDecomp.apply(X)
+    S_th = torch.max(eps * torch.eye(S.shape[0]), S)
+    return U.mm(S_th.mm(U.t()))
+
+
 def LogEig(X):
-    S, U = torch.eig(X, eigenvectors=True)
+    S, U = EigDecomp.apply(X)
     out = EigenLog.apply(S, U)
     return out
 
@@ -197,7 +198,7 @@ if __name__ == "__main__":
     from torch.optim import SGD
     func1 = BiMap.apply
     func2 = ReEig
-    func3 = LogEig.apply
+    func3 = LogEig
     func4 = lambda x, w: torch.mm(torch.mm(w, x), w.t())
     Xdat = torch.rand(5, 5)
     Xdat = Xdat @ Xdat.t()
@@ -225,7 +226,8 @@ if __name__ == "__main__":
     optimizer2 = SGD([W2], lr=0.001)
     for idx in range(1000):
         output = func1(X, W)
-        output = func2(output, 1e-3)
+        output = func2(output, 1e-4)
+        output = func3(output)
         output2 = func4(X2, W2)
         #e = torch.eig(output)[0]
         #print("min eval: {:.4f}".format(e[:, 0].min()))
