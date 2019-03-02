@@ -110,12 +110,12 @@ def ReEig(X, eps):
     return U.mm(S_th.mm(U.t()))
 
 
-class LogEig(torch.autograd.Function):
+class EigenLog(torch.autograd.Function):
     """
     Implements the LogEig non-linearity which induces a Log-Euclidean Riemannian metric on an input SPD matrix.
     """
     @staticmethod
-    def forward(ctx, X):
+    def forward(ctx, S, U):
         """
         Implementes the forward pass of the LogEig non-linearity which allows for Euclidean geometry to be used for
         separation of features in the SPD matrix space.
@@ -123,9 +123,8 @@ class LogEig(torch.autograd.Function):
         :param X: input SPD matrix (d x d)
         :return: log-euclidean spd matrix
         """
-        S, U = torch.eig(X, eigenvectors=True)
-        ctx.save_for_backward(U, S[:, 0])
-        return U.mm(torch.log(S[:, 0]).diag().mm(U.t()))
+        ctx.save_for_backward(S, U)
+        return U.mm(torch.log(S).diag().mm(U.t()))
 
     @staticmethod
     def backward(ctx, *grad_outputs):
@@ -136,19 +135,17 @@ class LogEig(torch.autograd.Function):
         :return: gradient with respect to input
         """
         grad_X = grad_outputs[0]
-        U, S = ctx.saved_tensors
-        rank = S.shape[0]
-        grad_U = 2 * sym_op(grad_X).mm(U.mm(torch.log(S).diag()))
+        S, U = ctx.saved_tensors
         grad_S = S.diag().inverse().mm(U.t().mm(sym_op(grad_X).mm(U)))
+        grad_U = 2 * sym_op(grad_X).mm(U.mm(torch.log(S).diag()))
 
-        s_vals = S.diag()
-        P = 1 / (s_vals.view(-1, 1).repeat((1, rank)) - s_vals.repeat(rank, 1))
-        P[torch.eye(rank) == 1] = 0
+        return grad_S, grad_U
 
-        dU = 2 * U.mm((P.t() * sym_op(U.t().mm(grad_U))).mm(U.t()))
-        dS = U.mm(diag_op(grad_S).mm(U.t()))
 
-        return dU + dS, None
+def LogEig(X):
+    S, U = torch.eig(X, eigenvectors=True)
+    out = EigenLog.apply(S, U)
+    return out
 
 
 class StiefelOpt(Optimizer):
