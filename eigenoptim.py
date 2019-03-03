@@ -10,6 +10,7 @@ Huang, Z., & Van Gool, L. (2016). A Riemannian Network for SPD Matrix Learning, 
 https://doi.org/10.1109/CVPR.2014.132
 """
 
+import torch
 from torch.optim.optimizer import Optimizer, required
 
 

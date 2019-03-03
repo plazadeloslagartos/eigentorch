@@ -14,14 +14,23 @@ import eigenfunctions as eF
 
 
 class SPDNet(nn.Module):
-    def __init__(self, dim_in, dim_out, num_filters=1):
+    def __init__(self, dim_in, dim_out, num_filters=1, eig_thresh=1e-4):
         super(SPDNet, self).__init__()
         assert dim_out <= dim_in
-        weight_dict = OrderedDict()
+        self.weights_list = []
+        self.eig_thresh = 1e-4
         for idx in range(num_filters):
             W_dat = torch.rand(dim_in, dim_in)
             W_dat = W_dat.t().mm(W_dat)
             junk, W_init = torch.eig(W_dat, eigenvectors=True)
             m_name = "W{:d}".format(idx)
-            weight_dict.update({m_name: nn.Parameter(W_init[:dim_out])})
-        self.weights = nn.Sequential(weight_dict)
+            self.weights_list.append(torch.nn.Parameter(W_init[:dim_out]))
+            setattr(self, m_name, self.weights_list[-1])
+
+    def forward(self, X):
+        output = []
+        for W in self.weights_list:
+            X_spd = eF.BiMap.apply(X, W)
+            X_spd = eF.ReEig(X_spd, self.eig_thresh)
+            output.append(eF.LogEig(X_spd))
+        return torch.stack(output)
