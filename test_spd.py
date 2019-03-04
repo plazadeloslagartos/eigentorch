@@ -51,7 +51,15 @@ if __name__ == "__main__":
 
         # Setup model objects
         model = P300SpdModel()
-        optimizer = SGD(model.parameters(), lr=0.01, momentum=0.5)
+        rm_params = []
+        eu_params = []
+        for param in model.parameters():
+            if isinstance(param, StiefelParameter):
+                rm_params.append(param)
+            else:
+                eu_params.append(param)
+        optimizer_rm = StiefelParameter(rm_params)
+        optimizer_eu = SGD(eu_params, lr=0.001)
         #loss_function = nn.NLLLoss(weight=torch.Tensor([.2, .8]))
         loss_function = nn.CrossEntropyLoss()
 
@@ -70,12 +78,14 @@ if __name__ == "__main__":
                 np_count = (ba['label'] == 2.0).sum()
                 if idx % 20 == 0:
                     log.info('Epoch: {:d}, Batch: {:d}, P300: {:d}, NP300 {:d}'.format(epoch, idx, p_count, np_count))
-                optimizer.zero_grad()
+                optimizer_rm.zero_grad()
+                optimizer_eu.zero_grad()
                 scores = model(ba['features'])
                 target = ba['label'].long() - 1
                 loss = loss_function(scores, target)
                 loss.backward()
-                optimizer.step()
+                optimizer_rm.step()
+                optimizer_eu.step()
                 loss_val = loss.item()
                 loss_arr.append(loss_val)
                 agg_loss += loss_val
