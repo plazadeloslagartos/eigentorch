@@ -64,9 +64,9 @@ class HDF5DataSetP300Avg(data.Dataset):
             features1 = self.item1[0]
 
         if item == 0:
-            return {'features': np.cov(np.float32(np.mean(features0, axis=0)[::ds]).T), 'label': np.float32(self.item0[1])}
+            return {'features': np.float32(np.cov(np.mean(features0, axis=0)[::ds].T)), 'label': np.float32(self.item0[1])}
         elif item == 1:
-            return {'features': np.cov(np.float32(np.mean(features1, axis=0)[::ds]).T), 'label': np.float32(self.item1[1])}
+            return {'features': np.float32(np.cov(np.mean(features1, axis=0)[::ds].T)), 'label': np.float32(self.item1[1])}
 
 
 class HDF5DataSetP300(data.Dataset):
@@ -112,7 +112,7 @@ class HDF5DataSetP300(data.Dataset):
             ds = self.downsample
         else:
             ds = 1
-        sample = {'features': np.cov(np.float32(np.mean(data_epochs[:n_idx], axis=0)[::ds]).T), 'label': np.float32(item_label),
+        sample = {'features': np.float32(np.cov(np.mean(data_epochs[:n_idx], axis=0)[::ds].T)), 'label': np.float32(item_label),
                   'group_id': np.float32(item_group_id)}
         return sample
 
