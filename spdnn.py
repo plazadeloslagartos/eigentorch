@@ -34,6 +34,8 @@ class SPDNet(nn.Module):
 
     def forward(self, X):
         batch_output = []
+        if len(X.shape) == 2:
+            X = torch.stack([X])
         for feat in X:
             feat_output = []
             for W in self.weights_list:
