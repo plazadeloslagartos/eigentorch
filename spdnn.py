@@ -33,9 +33,12 @@ class SPDNet(nn.Module):
             setattr(self, m_name, self.weights_list[-1])
 
     def forward(self, X):
-        output = []
-        for W in self.weights_list:
-            X_spd = eF.BiMap.apply(X, W)
-            X_spd = eF.ReEig(X_spd, self.eig_thresh)
-            output.append(eF.LogEig(X_spd))
-        return torch.stack(output)
+        batch_output = []
+        for feat in X:
+            feat_output = []
+            for W in self.weights_list:
+                X_spd = eF.BiMap.apply(feat, W)
+                X_spd = eF.ReEig(X_spd, self.eig_thresh)
+                feat_output.append(eF.LogEig(X_spd))
+            batch_output.append(torch.stack(feat_output))
+        return torch.stack(batch_output)
