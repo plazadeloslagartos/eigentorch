@@ -7,6 +7,7 @@ import logging
 import torch
 from data_utilities import AggregateDataSet
 from spdnn import SPDNet, StiefelParameter
+from eigenoptim import StiefelOpt
 from torch.optim import SGD
 log = logging.getLogger(__name__)
 nn = torch.nn
@@ -58,7 +59,7 @@ if __name__ == "__main__":
                 rm_params.append(param)
             else:
                 eu_params.append(param)
-        optimizer_rm = StiefelParameter(rm_params)
+        optimizer_rm = StiefelOpt(rm_params)
         optimizer_eu = SGD(eu_params, lr=0.001)
         #loss_function = nn.NLLLoss(weight=torch.Tensor([.2, .8]))
         loss_function = nn.CrossEntropyLoss()
