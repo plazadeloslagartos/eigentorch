@@ -1,6 +1,6 @@
 """
 This module implements a custom optimizer for optimizing parameters of size (m x n) in Euclidean space, when the
-received from the next layer conform to the geometry of a Steifel manifold.  This ensures that the weights obey
+received from the next layer conform to the geometry of a Stiefel manifold.  This ensures that the weights obey
 the constrait of semi-orthogonality.
 
 
@@ -16,7 +16,7 @@ from torch.optim.optimizer import Optimizer, required
 
 class StiefelOpt(Optimizer):
     """
-    Implements Parameter optimization with respect to a gradient on the Steifel manifold.
+    Implements Parameter optimization with respect to a gradient on the Stiefel manifold.
     Expects that the gradient associated with a given Parameter is the Riemannian gradient
     tangent to the manifold (i.e. gradient generated from BiMap function)
 

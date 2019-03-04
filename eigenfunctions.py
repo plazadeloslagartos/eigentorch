@@ -1,6 +1,6 @@
 """
 This module implements custom PyTorch Autograd functions which can be used to facilitate weight updating for
-Semi-Positive Definite Matrices on a Steifel Manifold via Riemannian Geometry, as opposed to Euclidean Space.
+Semi-Positive Definite Matrices on a Stiefel Manifold via Riemannian Geometry, as opposed to Euclidean Space.
 The functions are then used to define an SPDNet layer.
 
 This is described fully in:

@@ -13,6 +13,11 @@ from collections import OrderedDict
 import eigenfunctions as eF
 
 
+class StiefelParameter(nn.Parameter):
+    def __init__(self, *args, **kwargs):
+        super(StiefelParameter, self).__init__()
+
+
 class SPDNet(nn.Module):
     def __init__(self, dim_in, dim_out, num_filters=1, eig_thresh=1e-4):
         super(SPDNet, self).__init__()
@@ -24,7 +29,7 @@ class SPDNet(nn.Module):
             W_dat = W_dat.t().mm(W_dat)
             junk, W_init = torch.eig(W_dat, eigenvectors=True)
             m_name = "W{:d}".format(idx)
-            self.weights_list.append(torch.nn.Parameter(W_init[:dim_out]))
+            self.weights_list.append(StiefelParameter(W_init[:dim_out]))
             setattr(self, m_name, self.weights_list[-1])
 
     def forward(self, X):
