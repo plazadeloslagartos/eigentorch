@@ -22,12 +22,12 @@ class P300SpdModel(nn.Module):
 
     def forward(self, input):
         output = self.spd(input)
-        output = self.fc(output)
+        output = self.fc(output.view(-1))
         return torch.sigmoid(output)
 
 
 if __name__ == "__main__":
-    metaset = AggregateDataSet('../Neurable/subvox-exploratory/p300_epoch_data', downsample=12, num_dsets=None, num_epochs_avg=None, avg_all=False)
+    metaset = AggregateDataSet('../Neurable/subvox-exploratory/p300_epoch_data', downsample=12, num_dsets=None, num_epochs_avg=None, avg_all=True)
     num_cv = 3
     cv_split = 0.7
     num_test = int((1.0 - cv_split) * len(metaset))
