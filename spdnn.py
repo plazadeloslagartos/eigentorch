@@ -33,6 +33,14 @@ class SPDNet(nn.Module):
             setattr(self, m_name, self.weights_list[-1])
 
     def forward(self, X):
+        """
+        Forward pass of spdnet
+        :param X: Tensor [n, n] Symeetric positive definite matrix
+        :return: Tensor [b, nf, n , n]:
+                            b is batch size
+                            nf is number of filters
+                            n is rank of input X
+        """
         batch_output = []
         if len(X.shape) == 2:
             X = torch.stack([X])
