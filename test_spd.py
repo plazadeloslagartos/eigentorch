@@ -22,7 +22,10 @@ class P300SpdModel(nn.Module):
 
     def forward(self, input):
         output = self.spd(input)
-        output = self.fc(output.view(batch_s, -1))
+        if self.batch_size > 1:
+            output = self.fc(output.view(self.batch_size, -1))
+        else:
+            output = self.fc(output.view(-1))
         return torch.sigmoid(output)
 
 
@@ -38,7 +41,8 @@ if __name__ == "__main__":
     labels = dl_tmp.next()['label']
     cv = StratifiedShuffleSplit(n_splits=num_cv, test_size=num_test)
 
-    batch_s = 5
+    num_epochs = 100
+    batch_s = 1
     cv_idx = 0
     num_spd_filters = 2
     agg_loss_all = []
@@ -69,7 +73,6 @@ if __name__ == "__main__":
         loss_arr = []
         agg_loss_arr = []
 
-        num_epochs = 1
         a = time()
         for epoch in range(num_epochs):
             agg_loss = 0
@@ -96,28 +99,28 @@ if __name__ == "__main__":
         elapsed = time() - a
         log.info("Elapsed Time: {:.2f}".format(elapsed))
 
-    #     predicted = []
-    #     labels = []
-    #     scores_arr = []
-    #     with torch.no_grad():
-    #         for idx, ba in enumerate(dl_test):
-    #             scores = model(ba['features'])
-    #             scores_arr.extend(scores)
-    #             predicted.extend(torch.argmax(scores, 1).numpy())
-    #             labels.extend(ba['label'].long().numpy())
-    #         predicted = np.hstack(predicted)
-    #         labels = np.hstack(labels) - 1
-    #         scores_arr = np.vstack(scores_arr)
-    #
-    #     overall = (predicted == labels).sum() / len(labels)
-    #     p300 = ((predicted == 0) & (labels == 0)).sum() / (labels == 0).sum()
-    #     np300 = ((predicted == 1) & (labels == 1)).sum() / (labels == 1).sum()
-    #     results.append([overall, p300, np300])
-    #     agg_loss_all.append(agg_loss_arr)
-    # plt.figure()
-    # plt.plot(np.array(agg_loss_all).T)
-    # plt.title('Aggregate Loss at each epoch}')
-    #
-    # print("scores \n{:s}".format(np.array(results).__repr__()))
-    # print("avg \n{:s}".format(np.array(results).mean(axis=0).__repr__()))
-    # print("std \n{:s}".format(np.array(results).std(axis=0).__repr__()))
+        predicted = []
+        labels = []
+        with torch.no_grad():
+            for idx, ba in enumerate(dl_test):
+                scores = model(ba['features'])
+                if batch_s > 1:
+                    predicted.extend(torch.argmax(scores, 1).numpy())
+                else:
+                    predicted.append(torch.argmax(scores).numpy())
+                labels.extend(ba['label'].long().numpy())
+            predicted = np.hstack(predicted)
+            labels = np.hstack(labels) - 1
+
+        overall = (predicted == labels).sum() / len(labels)
+        p300 = ((predicted == 0) & (labels == 0)).sum() / (labels == 0).sum()
+        np300 = ((predicted == 1) & (labels == 1)).sum() / (labels == 1).sum()
+        results.append([overall, p300, np300])
+        agg_loss_all.append(agg_loss_arr)
+    plt.figure()
+    plt.plot(np.array(agg_loss_all).T)
+    plt.title('Aggregate Loss at each epoch}')
+
+    print("scores \n{:s}".format(np.array(results).__repr__()))
+    print("avg \n{:s}".format(np.array(results).mean(axis=0).__repr__()))
+    print("std \n{:s}".format(np.array(results).std(axis=0).__repr__()))
