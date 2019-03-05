@@ -42,7 +42,7 @@ if __name__ == "__main__":
     cv = StratifiedShuffleSplit(n_splits=num_cv, test_size=num_test)
 
     num_epochs = 100
-    batch_s = 1
+    batch_s = 5
     cv_idx = 0
     num_spd_filters = 2
     agg_loss_all = []
@@ -56,7 +56,7 @@ if __name__ == "__main__":
         dl_test = data.DataLoader(metaset, batch_size=batch_s, sampler=test_set, drop_last=True)
 
         # Setup model objects
-        model = P300SpdModel()
+        model = P300SpdModel(batch_size=batch_s)
         rm_params = []
         eu_params = []
         for param in model.parameters():
