@@ -9,7 +9,6 @@ https://doi.org/10.1109/CVPR.2014.132
 """
 import torch
 from torch import nn
-from collections import OrderedDict
 import eigenfunctions as eF
 
 
