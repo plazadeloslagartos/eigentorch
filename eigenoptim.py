@@ -12,6 +12,7 @@ https://doi.org/10.1109/CVPR.2014.132
 
 import torch
 from torch.optim.optimizer import Optimizer, required
+from spdnn import StiefelParameter
 
 
 class StiefelOpt(Optimizer):
@@ -29,6 +30,8 @@ class StiefelOpt(Optimizer):
         if lr is not required and lr < 0.0:
             raise ValueError("Invalid learning rate: {}".format(lr))
         defaults = dict(lr=lr)
+        for p in params:
+            assert(isinstance(p, StiefelParameter))
         super(StiefelOpt, self).__init__(params, defaults)
 
     def __setstate__(self, state):
