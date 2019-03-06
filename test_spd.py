@@ -44,7 +44,7 @@ if __name__ == "__main__":
     num_epochs = 100
     batch_s = 5
     cv_idx = 0
-    num_spd_filters = 2
+    num_spd_filters = 5
     agg_loss_all = []
     for train_idxs, test_idxs in cv.split(full_indices, labels):
         cv_idx += 1
@@ -56,7 +56,7 @@ if __name__ == "__main__":
         dl_test = data.DataLoader(metaset, batch_size=batch_s, sampler=test_set, drop_last=True)
 
         # Setup model objects
-        model = P300SpdModel(batch_size=batch_s)
+        model = P300SpdModel(batch_size=batch_s, num_filters=num_spd_filters)
         rm_params = []
         eu_params = []
         for param in model.parameters():
@@ -64,8 +64,8 @@ if __name__ == "__main__":
                 rm_params.append(param)
             else:
                 eu_params.append(param)
-        optimizer_rm = StiefelOpt(rm_params, lr=0.001)
-        optimizer_eu = SGD(eu_params, lr=0.001)
+        optimizer_rm = StiefelOpt(rm_params, lr=0.0001)
+        optimizer_eu = SGD(eu_params, lr=0.0001)
         #loss_function = nn.NLLLoss(weight=torch.Tensor([.2, .8]))
         loss_function = nn.CrossEntropyLoss()
 
@@ -82,6 +82,7 @@ if __name__ == "__main__":
                 np_count = (ba['label'] == 2.0).sum()
                 if idx % 20 == 0:
                     log.info('Epoch: {:d}, Batch: {:d}, P300: {:d}, NP300 {:d}'.format(epoch, idx, p_count, np_count))
+                    print('CV: {:d}, Epoch: {:d}, Batch: {:d}, P300: {:d}, NP300 {:d}'.format(cv_idx, epoch, idx, p_count, np_count))
                 optimizer_rm.zero_grad()
                 optimizer_eu.zero_grad()
                 scores = model(ba['features'])
@@ -93,8 +94,6 @@ if __name__ == "__main__":
                 loss_val = loss.item()
                 loss_arr.append(loss_val)
                 agg_loss += loss_val
-                if idx == 0:
-                    break
             agg_loss_arr.append(agg_loss)
         elapsed = time() - a
         log.info("Elapsed Time: {:.2f}".format(elapsed))
