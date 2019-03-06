@@ -15,5 +15,21 @@ This allows for classification of the resultant features in Euclidean space via 
 MLP layer.
 
 This project is inspired by the methodology described in the journal paper below:
-Huang, Z., & Van Gool, L. (2016). A Riemannian Network for SPD Matrix Learning, 2036–2042.
-https://doi.org/10.1109/CVPR.2014.132
+
+_Huang, Z., & Van Gool, L. (2016). A Riemannian Network for SPD Matrix Learning, 2036–2042.
+https://doi.org/10.1109/CVPR.2014.132_
+
+### modules
+* __eigenfunctions.py:__ This provides the custom autograd functions necessary to implement the riemannian math
+    * _BiMap_: Transforms an SPD matrix into another SPD matrix.  This is the only function with parameters.
+    Parameters are assumed to be points on Stiefel Manifold and the gradients returned are referenced to the corresponding
+    tangent space.  Therefore, a custom optimizer is necessary to project the gradients back down to the manifold.
+    * _ReEig_:  Inspired by ReLu, this performs SPD regularization by thresholding eigenvalues against a minimum value.
+    * _LogEig_:  Performs LogEuclidean metric calculation which projects an SPD matrix into a flattened representation of the 
+    underlying manifold.
+     
+* __eigenoptim.py:__ This provides the custom optimizer object which updates weights for the BiMap layer on the 
+                    underlying semi-orthogonal Stiefel manifold.
+* __spdnn.py__: This provides the SpdNet Layer to be use in Pytorch networks. Parameters for BiMap are of instance 
+                _StiefelParameter_ which is subclassed from _nn.Parameter_.  
+ 
