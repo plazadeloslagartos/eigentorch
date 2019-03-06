@@ -18,12 +18,13 @@ class P300SpdModel(nn.Module):
         super(P300SpdModel, self).__init__()
         self.batch_size = batch_size
         self.spd = SPDNet(feature_size, output_size, num_filters)
+        self.bn = nn.BatchNorm1d((output_size**2) * num_filters)
         self.fc = nn.Linear(in_features=(output_size**2) * num_filters, out_features=2)
 
     def forward(self, input):
         output = self.spd(input)
         if self.batch_size > 1:
-            output = self.fc(output.view(self.batch_size, -1))
+            output = self.fc(self.bn(output.view(self.batch_size, -1)))
         else:
             output = self.fc(output.view(-1))
         return torch.sigmoid(output)
@@ -41,10 +42,10 @@ if __name__ == "__main__":
     labels = dl_tmp.next()['label']
     cv = StratifiedShuffleSplit(n_splits=num_cv, test_size=num_test)
 
-    num_epochs = 100
-    batch_s = 5
+    num_epochs = 20
+    batch_s = 10
     cv_idx = 0
-    num_spd_filters = 5
+    num_spd_filters = 10
     agg_loss_all = []
     for train_idxs, test_idxs in cv.split(full_indices, labels):
         cv_idx += 1
@@ -64,8 +65,8 @@ if __name__ == "__main__":
                 rm_params.append(param)
             else:
                 eu_params.append(param)
-        optimizer_rm = StiefelOpt(rm_params, lr=0.0001)
-        optimizer_eu = SGD(eu_params, lr=0.0001)
+        optimizer_rm = StiefelOpt(rm_params, lr=0.001)
+        optimizer_eu = SGD(eu_params, lr=0.001)
         #loss_function = nn.NLLLoss(weight=torch.Tensor([.2, .8]))
         loss_function = nn.CrossEntropyLoss()
 
