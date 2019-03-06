@@ -30,12 +30,13 @@ https://doi.org/10.1109/CVPR.2014.132_
 
 ### modules
 * __eigenfunctions.py:__ This provides the custom autograd functions necessary to implement the riemannian math
-    * _BiMap_: Transforms an SPD matrix into another SPD matrix.  This is the only function with parameters.
-    Parameters are assumed to be points on Stiefel Manifold and the gradients returned are referenced to the corresponding
-    tangent space.  Therefore, a custom optimizer is necessary to project the gradients back down to the manifold.
+    * _BiMap_: Uses a bilinear transformation to turn an SPD matrix into another SPD matrix.  This is the only function 
+    with parameters.  Parameters are assumed to be points on Stiefel Manifold and the gradients returned are referenced 
+    to the corresponding tangent space.  Therefore, a custom optimizer is necessary to project the gradients back down 
+    to the manifold.
     * _ReEig_:  Inspired by ReLu, this performs SPD regularization by thresholding eigenvalues against a minimum value.
-    * _LogEig_:  Performs LogEuclidean metric calculation which projects an SPD matrix into a flattened representation of the 
-    underlying manifold.
+    * _LogEig_:  Performs LogEuclidean metric calculation which projects an SPD matrix into a flattened representation 
+    of the underlying manifold.
      
 * __eigenoptim.py:__ This provides the custom optimizer object which updates weights for the BiMap layer on the 
                     underlying semi-orthogonal Stiefel manifold.
