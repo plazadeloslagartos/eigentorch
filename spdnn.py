@@ -19,11 +19,20 @@ class StiefelParameter(nn.Parameter):
 
 
 class SPDNet(nn.Module):
-    def __init__(self, dim_in, dim_out, num_filters=1, eig_thresh=1e-4):
+    def __init__(self, dim_in, dim_out, num_filters=1, eig_thresh=1e-4, log_euclid=True):
+        """
+        SPDnet Layer
+        :param dim_in: (int) rank of input SPD feature
+        :param dim_out: (int) rank of output SPD features (must be less than dim_in)
+        :param num_filters: (int) number of SPD filters (features to return)
+        :param eig_thresh: (float) minimum eigenvalue threshold for ReEig, default: 1e-4
+        :param log_euclid: (bool) whether or not to perform LogEig operation, default: True
+        """
         super(SPDNet, self).__init__()
         assert dim_out < dim_in
         self.weights_list = []
         self.eig_thresh = 1e-4
+        self.log_euclid = log_euclid
         for idx in range(num_filters):
             W_dat = torch.rand(dim_in, dim_in)
             W_dat = W_dat.t().mm(W_dat)
@@ -49,6 +58,7 @@ class SPDNet(nn.Module):
             for W in self.weights_list:
                 X_spd = eF.BiMap.apply(feat, W)
                 X_spd = eF.ReEig(X_spd, self.eig_thresh)
-                feat_output.append(eF.LogEig(X_spd))
+                if self.log_euclid:
+                    feat_output.append(eF.LogEig(X_spd))
             batch_output.append(torch.stack(feat_output))
         return torch.stack(batch_output)
