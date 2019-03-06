@@ -21,7 +21,7 @@ class StiefelParameter(nn.Parameter):
 class SPDNet(nn.Module):
     def __init__(self, dim_in, dim_out, num_filters=1, eig_thresh=1e-4):
         super(SPDNet, self).__init__()
-        assert dim_out <= dim_in
+        assert dim_out < dim_in
         self.weights_list = []
         self.eig_thresh = 1e-4
         for idx in range(num_filters):
