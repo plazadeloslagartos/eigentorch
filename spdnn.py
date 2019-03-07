@@ -30,7 +30,7 @@ class SPDNet(nn.Module):
         super(SPDNet, self).__init__()
         assert dim_out < dim_in
         self.weights_list = []
-        self.eig_thresh = 1e-4
+        self.eig_thresh = eig_thresh
         self.log_euclid = log_euclid
         for idx in range(num_filters):
             W_dat = torch.rand(dim_in, dim_in)
