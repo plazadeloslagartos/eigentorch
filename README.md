@@ -28,6 +28,9 @@ no direct affiliation with the authors:__
 _Huang, Z., & Van Gool, L. (2016). A Riemannian Network for SPD Matrix Learning, 2036–2042.
 https://doi.org/10.1109/CVPR.2014.132_
 
+### Examples
+* spdnn.ipynb: demonstrates BiMap layer with manifold optimization
+
 ### modules
 * __eigenfunctions.py:__ This provides the custom autograd functions necessary to implement the riemannian math
     * _BiMap_: Uses a bilinear transformation to turn an SPD matrix into another SPD matrix.  This is the only function 
