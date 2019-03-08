@@ -59,5 +59,7 @@ class SPDNet(nn.Module):
                 X_spd = eF.ReEig(X_spd, self.eig_thresh)
                 if self.log_euclid:
                     feat_output.append(eF.LogEig(X_spd))
+                else:
+                    feat_output.append(X_spd)
             batch_output.append(torch.stack(feat_output))
         return torch.stack(batch_output)
