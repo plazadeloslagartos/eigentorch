@@ -11,7 +11,6 @@ import torch
 from torch import nn
 import eigenfunctions as eF
 
-
 class StiefelParameter(nn.Parameter):
     def __init__(self, *args, **kwargs):
         super(StiefelParameter, self).__init__()
@@ -33,8 +32,9 @@ class SPDNet(nn.Module):
         self.eig_thresh = eig_thresh
         self.log_euclid = log_euclid
         for idx in range(num_filters):
-            W_dat = torch.rand(dim_in, dim_in)
-            W_dat = W_dat.t().mm(W_dat)
+            W_dat = torch.rand(dim_in, dim_in**2)
+            Wm = W_dat.mean(1).view(-1, 1)
+            W_dat = (W_dat - Wm).mm((W_dat - Wm).t())
             junk, W_init = torch.eig(W_dat, eigenvectors=True)
             m_name = "W{:d}".format(idx)
             self.weights_list.append(StiefelParameter(W_init[:dim_out]))
